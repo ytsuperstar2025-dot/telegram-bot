@@ -101,8 +101,8 @@ def payment_ss(message):
 
     kb = InlineKeyboardMarkup(row_width=2)
     kb.add(
-        InlineKeyboardButton("Approve", callback_data=f"approve"),
-        InlineKeyboardButton("Reject", callback_data=f"reject")
+        InlineKeyboardButton("Approve", callback_data="approve"),
+        InlineKeyboardButton("Reject", callback_data="reject")
     )
 
     sent = bot.send_photo(ADMIN_ID, message.photo[-1].file_id, caption=caption, reply_markup=kb)
@@ -154,21 +154,107 @@ def reject(c):
     bot.answer_callback_query(c.id, "Rejected")
 
 
+# 🔥 FULL ADMIN PANEL
 @bot.message_handler(commands=["admin"])
 def admin(message):
     if not is_admin(message.from_user.id):
         return
 
-    kb = InlineKeyboardMarkup()
-    kb.add(InlineKeyboardButton("Stats", callback_data="stats"))
-    bot.send_message(message.chat.id, "Admin Panel", reply_markup=kb)
+    kb = InlineKeyboardMarkup(row_width=2)
+    kb.add(
+        InlineKeyboardButton("Set Price", callback_data="admin_price"),
+        InlineKeyboardButton("Set UPI", callback_data="admin_upi")
+    )
+    kb.add(
+        InlineKeyboardButton("Set Premium Link", callback_data="admin_link"),
+        InlineKeyboardButton("Set Demo Link", callback_data="admin_demo")
+    )
+    kb.add(
+        InlineKeyboardButton("Set Product Name", callback_data="admin_name"),
+        InlineKeyboardButton("Set Start Text", callback_data="admin_starttext")
+    )
+    kb.add(
+        InlineKeyboardButton("Set Photo", callback_data="admin_photo")
+    )
+    kb.add(
+        InlineKeyboardButton("Broadcast", callback_data="admin_broadcast"),
+        InlineKeyboardButton("Stats", callback_data="admin_stats")
+    )
+
+    bot.send_message(message.chat.id, "Admin Controls", reply_markup=kb)
 
 
-@bot.callback_query_handler(func=lambda c: c.data == "stats")
-def stats(c):
-    users = get_all_users()
-    bot.send_message(c.message.chat.id, f"Users: {len(users)}\nSales: {store['sales']}\nRevenue: Rs {store['revenue']}")
+@bot.callback_query_handler(func=lambda c: c.data.startswith("admin_"))
+def admin_btn(c):
+    if not is_admin(c.from_user.id):
+        return
+
+    action = c.data.split("_", 1)[1]
+
+    if action == "stats":
+        users = get_all_users()
+        bot.send_message(
+            c.message.chat.id,
+            f"Users: {len(users)}\nSales: {store['sales']}\nRevenue: Rs {store['revenue']}"
+        )
+        return
+
+    if action == "photo":
+        admin_wait[c.from_user.id] = "photo"
+        bot.send_message(c.message.chat.id, "Photo bhejo 📸")
+        return
+
+    admin_wait[c.from_user.id] = action
+
+    prompts = {
+        "price": "Send new price",
+        "upi": "Send new UPI",
+        "link": "Send new premium link",
+        "demo": "Send new demo link",
+        "name": "Send new product name",
+        "starttext": "Send new welcome text",
+        "broadcast": "Send message to broadcast"
+    }
+
+    bot.send_message(c.message.chat.id, prompts[action])
+
+
+@bot.message_handler(func=lambda m: is_admin(m.from_user.id) and m.from_user.id in admin_wait)
+def admin_input(message):
+    action = admin_wait.pop(message.from_user.id)
+
+    if action == "price":
+        store["price"] = message.text.strip()
+
+    elif action == "upi":
+        store["upi"] = message.text.strip()
+
+    elif action == "link":
+        store["premium_link"] = message.text.strip()
+
+    elif action == "demo":
+        store["demo"] = message.text.strip()
+
+    elif action == "name":
+        store["name"] = message.text.strip()
+
+    elif action == "starttext":
+        store["start_text"] = message.text.strip()
+
+    elif action == "broadcast":
+        sent = 0
+        for user in get_all_users():
+            try:
+                bot.send_message(user[0], message.text)
+                sent += 1
+            except:
+                pass
+        bot.reply_to(message, f"Broadcast sent to {sent} users")
+        return
+
+    save_data()
+    bot.reply_to(message, "Updated successfully ✅")
 
 
 print("Bot running...")
-bot.infinity_polling()
+bot.infinity_polling(skip_pending=True)
