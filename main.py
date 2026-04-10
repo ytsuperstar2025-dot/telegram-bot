@@ -50,6 +50,29 @@ def start(message):
         bot.send_message(message.chat.id, home_text(store), reply_markup=home_markup(store))
 
 
+# =========================
+# ✅ START BUTTON FIX (ADDED)
+# =========================
+@bot.callback_query_handler(func=lambda c: c.data == "start")
+def start_btn(c):
+    store = get_store()
+    bot.answer_callback_query(c.id)
+
+    if store["photo"]:
+        bot.send_photo(
+            c.message.chat.id,
+            store["photo"],
+            caption=home_text(store),
+            reply_markup=home_markup(store)
+        )
+    else:
+        bot.send_message(
+            c.message.chat.id,
+            home_text(store),
+            reply_markup=home_markup(store)
+        )
+
+
 @bot.callback_query_handler(func=lambda c: c.data == "buy")
 def buy(c):
     store = get_store()
@@ -67,7 +90,7 @@ def buy(c):
 
     kb = InlineKeyboardMarkup()
     kb.add(InlineKeyboardButton("I Have Paid", callback_data="paid"))
-    kb.add(InlineKeyboardButton("⬅ Back", callback_data="back"))  # 🔥 BACK BUTTON
+    kb.add(InlineKeyboardButton("⬅ Back", callback_data="back"))
 
     bot.send_photo(c.message.chat.id, bio, caption=text, reply_markup=kb)
 
