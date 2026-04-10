@@ -28,17 +28,7 @@ def get_store():
     }
 
 
-# =========================
-# HOME TEXT
-# =========================
-def home_text(store):
-    return f"""
-⚡ *PAYMENT GATEWAY*
 
-📛 *Access:* {store['name']}
-💵 *Amount:* ₹{store['price']}
-🏦 *UPI:* `{store['upi']}`
-"""
 
 
 # =========================
