@@ -41,7 +41,7 @@ def payment_text(store, price):
 💵 𝐀𝐦𝐨𝐮𝐧𝐭: ₹{price}
 🏦 𝐔𝐏𝐈 𝐈𝐃: `{store['upi'] or "Not Set"}`
 
-📸 Send payment screenshot after clicking I HAVE PAID
+📸 Send screenshot after payment
 """
 
 
@@ -96,7 +96,7 @@ def admin_panel(message):
 
 
 # =========================
-# ADMIN SET VALUE
+# ADMIN SET
 # =========================
 @bot.callback_query_handler(func=lambda c: c.data.startswith("set_"))
 def admin_set(c):
@@ -108,16 +108,15 @@ def admin_set(c):
 
 
 # =========================
-# ADMIN SAVE TEXT + PHOTO
+# MESSAGE HANDLER (ADMIN + SCREENSHOT)
 # =========================
 @bot.message_handler(content_types=['text', 'photo'])
-def save_admin(m):
+def handle_all(m):
 
     user_id = m.from_user.id
 
-    # admin text/photo settings
+    # ================= ADMIN UPDATE =================
     if user_id in admin_wait:
-
         action = admin_wait[user_id]
 
         if action == "photo":
@@ -134,8 +133,12 @@ def save_admin(m):
         admin_wait.pop(user_id, None)
         return
 
-    # USER screenshot flow
+    # ================= SCREENSHOT FLOW =================
     if pending_screenshot.get(user_id):
+
+        if not m.photo:
+            bot.send_message(m.chat.id, "📸 Please send a valid screenshot image.")
+            return
 
         pending_screenshot.pop(user_id, None)
         store = get_store()
@@ -155,7 +158,7 @@ def save_admin(m):
 
         bot.send_message(
             m.chat.id,
-            "✅ Payment received!\n\n⏳ Verification in progress...\n🔗 Access link will be sent soon."
+            "✅ Screenshot received!\n⏳ Verification in progress...\n🔗 Access will be sent soon."
         )
 
 
@@ -188,7 +191,7 @@ def buy(c):
 
 
 # =========================
-# I HAVE PAID
+# PAID BUTTON
 # =========================
 @bot.callback_query_handler(func=lambda c: c.data == "paid")
 def paid(c):
@@ -196,8 +199,7 @@ def paid(c):
 
     bot.send_message(
         c.message.chat.id,
-        "📸 Please send your *payment screenshot* here.\n\n"
-        "⚠ After verification, your access link will be sent."
+        "📸 Please send your *payment screenshot* here."
     )
 
 
@@ -231,8 +233,6 @@ def cancel(c):
 🔥 SPECIAL OFFER
 💰 OLD: ₹{old_price}
 💸 NEW: ₹{new_price}
-
-👉 Pay now to get access
 """
 
     kb = InlineKeyboardMarkup()
@@ -242,7 +242,7 @@ def cancel(c):
 
 
 # =========================
-# APPROVE / REJECT
+# APPROVE / REJECT (FIXED)
 # =========================
 @bot.callback_query_handler(func=lambda c: c.data.startswith("approve_"))
 def approve(c):
@@ -254,7 +254,7 @@ def approve(c):
 
     offer_price.pop(user_id, None)
 
-    bot.edit_message_text("✅ APPROVED & LINK SENT", c.message.chat.id, c.message.message_id)
+    bot.send_message(c.message.chat.id, "✅ APPROVED & LINK SENT")
     bot.send_message(user_id, store["premium_link"])
 
 
@@ -264,8 +264,8 @@ def reject(c):
 
     offer_price.pop(user_id, None)
 
+    bot.send_message(c.message.chat.id, "❌ REJECTED")
     bot.send_message(user_id, "❌ Payment rejected")
-    bot.edit_message_text("❌ REJECTED", c.message.chat.id, c.message.message_id)
 
 
 # =========================
