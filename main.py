@@ -11,7 +11,7 @@ bot = telebot.TeleBot(TOKEN, parse_mode="Markdown")
 admin_wait = {}
 offer_price = {}
 
-# ✅ ADDED (FIX)
+# ✅ FIX ADDED
 user_step = {}
 pending_ss = {}
 
@@ -31,6 +31,23 @@ def get_store():
         "sales": int(get_setting("sales", "0")),
         "revenue": int(get_setting("revenue", "0")),
     }
+
+
+# =========================
+# PAYMENT TEXT
+# =========================
+def payment_text(store, price):
+    return f"""
+⚡ 𝐏𝐀𝐘𝐌𝐄𝐍𝐓 𝐆𝐀𝐓𝐄𝐖𝐀𝐘
+
+📛 𝐀𝐜𝐜𝐞𝐬𝐬: {store['name'] or "Not Set"}
+💵 𝐀𝐦𝐨𝐮𝐧𝐭: ₹{price}
+🏦 𝐔𝐏𝐈 𝐈𝐃: `{store['upi'] or "Not Set"}`
+
+1️⃣ Scan QR  
+2️⃣ Pay using UPI  
+3️⃣ Click button below
+"""
 
 
 # =========================
@@ -59,7 +76,7 @@ def start(message):
 
 
 # =========================
-# ADMIN PANEL (SAME)
+# ADMIN PANEL
 # =========================
 @bot.message_handler(commands=["admin"])
 def admin_panel(message):
@@ -83,7 +100,7 @@ def admin_panel(message):
 
 
 # =========================
-# ADMIN SET (SAME)
+# ADMIN SELECT
 # =========================
 @bot.callback_query_handler(func=lambda c: c.data.startswith("set_"))
 def admin_set(c):
@@ -95,7 +112,7 @@ def admin_set(c):
 
 
 # =========================
-# ADMIN INPUT (SAME)
+# ADMIN SAVE
 # =========================
 @bot.message_handler(content_types=['text', 'photo'])
 def save_admin(m):
@@ -119,7 +136,7 @@ def save_admin(m):
 
 
 # =========================
-# BUY (SAME)
+# BUY
 # =========================
 @bot.callback_query_handler(func=lambda c: c.data == "buy")
 def buy(c):
@@ -144,11 +161,11 @@ def buy(c):
     kb.add(InlineKeyboardButton("💳 I HAVE PAID", callback_data="paid"))
     kb.add(InlineKeyboardButton("❌ CANCEL ORDER", callback_data="cancel"))
 
-    bot.send_photo(c.message.chat.id, bio, caption="⚡ ORDER", reply_markup=kb)
+    bot.send_photo(c.message.chat.id, bio, caption=payment_text(store, price), reply_markup=kb)
 
 
 # =========================
-# ❌ PAID FIX (SCREENSHOT FLOW)
+# ❌ PAID FIX (SCREENSHOT STEP)
 # =========================
 @bot.callback_query_handler(func=lambda c: c.data == "paid")
 def paid(c):
@@ -157,7 +174,7 @@ def paid(c):
 
 
 # =========================
-# 📸 SCREENSHOT HANDLER (NEW FIX)
+# 📸 SCREENSHOT SYSTEM
 # =========================
 @bot.message_handler(content_types=['photo'])
 def receive_ss(m):
@@ -167,7 +184,6 @@ def receive_ss(m):
         return
 
     file_id = m.photo[-1].file_id
-    store = get_store()
 
     pending_ss[user_id] = file_id
     user_step.pop(user_id, None)
@@ -189,7 +205,7 @@ def receive_ss(m):
 
 
 # =========================
-# CANCEL (SAME)
+# CANCEL
 # =========================
 @bot.callback_query_handler(func=lambda c: c.data == "cancel")
 def cancel(c):
@@ -222,7 +238,7 @@ def cancel(c):
 
 
 # =========================
-# APPROVE FIX (NO DELETE SCREENSHOT)
+# APPROVE
 # =========================
 @bot.callback_query_handler(func=lambda c: c.data.startswith("approve_"))
 def approve(c):
@@ -235,13 +251,12 @@ def approve(c):
     offer_price.pop(user_id, None)
 
     bot.edit_message_reply_markup(c.message.chat.id, c.message.message_id, reply_markup=None)
-
     bot.send_message(c.message.chat.id, "✅ APPROVED & LINK SENT")
     bot.send_message(user_id, store["premium_link"])
 
 
 # =========================
-# REJECT FIX
+# REJECT
 # =========================
 @bot.callback_query_handler(func=lambda c: c.data.startswith("reject_"))
 def reject(c):
@@ -250,13 +265,12 @@ def reject(c):
     offer_price.pop(user_id, None)
 
     bot.edit_message_reply_markup(c.message.chat.id, c.message.message_id, reply_markup=None)
-
     bot.send_message(c.message.chat.id, "❌ REJECTED")
     bot.send_message(user_id, "❌ Payment Rejected")
 
 
 # =========================
-# USERS / STATS (SAME)
+# USERS / STATS
 # =========================
 @bot.callback_query_handler(func=lambda c: c.data == "users")
 def users(c):
