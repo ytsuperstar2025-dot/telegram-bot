@@ -10,7 +10,7 @@ bot = telebot.TeleBot(TOKEN, parse_mode="Markdown")
 
 
 # =========================
-# STORE DATA
+# STORE
 # =========================
 def get_store():
     return {
@@ -24,19 +24,26 @@ def get_store():
 
 
 # =========================
-# START PAGE (OLD SIMPLE)
+# START TEXT (FIXED)
 # =========================
 def home_text(store):
-    return f"*{store['name']}*\n\n{store['start_text']}\n\nPrice: ₹{store['price']}"
+    text = store.get("start_text")
+    if text and text.strip():
+        return text
+
+    return f"*{store['name']}*\n\nPrice: ₹{store['price']}"
 
 
 def home_markup(store):
     kb = InlineKeyboardMarkup()
-    kb.add(InlineKeyboardButton("💳 Buy Premium", callback_data="buy"))
-    kb.add(InlineKeyboardButton("🎬 Watch Demo", url=store["demo"]))
+    kb.add(InlineKeyboardButton("💳 BUY PREMIUM", callback_data="buy"))
+    kb.add(InlineKeyboardButton("🎬 WATCH DEMO", url=store["demo"]))
     return kb
 
 
+# =========================
+# START
+# =========================
 @bot.message_handler(commands=["start"])
 def start(message):
     store = get_store()
@@ -50,7 +57,7 @@ def start(message):
 
 
 # =========================
-# BACK BUTTON
+# BACK
 # =========================
 @bot.callback_query_handler(func=lambda c: c.data == "back")
 def back(c):
@@ -65,18 +72,14 @@ def back(c):
 
 
 # =========================
-# BUY PREMIUM (FINAL UI FIX)
+# BUY (QR + UI FIXED)
 # =========================
 @bot.callback_query_handler(func=lambda c: c.data == "buy")
 def buy(c):
     store = get_store()
     bot.answer_callback_query(c.id)
 
-    upi = store["upi"]
-    price = store["price"]
-    name = store["name"]
-
-    upi_link = f"upi://pay?pa={upi}&am={price}&cu=INR"
+    upi_link = f"upi://pay?pa={store['upi']}&am={store['price']}&cu=INR"
 
     qr = qrcode.QRCode(
         version=1,
@@ -95,18 +98,18 @@ def buy(c):
     bio.seek(0)
 
     caption = f"""
-⚡ *𝐏𝐀𝐘𝐌𝐄𝐍𝐓 𝐆𝐀𝐓𝐄𝐖𝐀𝐘*
+⚡ *PAYMENT GATEWAY*
 
-📦 *𝐀𝐜𝐜𝐞𝐬𝐬:* {name}
-💰 *𝐏𝐫𝐢𝐜𝐞:* ₹{price}
+📦 *Access:* {store['name']}
+💰 *Price:* ₹{store['price']}
 
-1️⃣ 𝐒𝐜𝐚𝐧 𝐐𝐑 𝐂𝐨𝐝𝐞  
-2️⃣ 𝐏𝐚𝐲 𝐮𝐬𝐢𝐧𝐠 𝐔𝐏𝐈  
-3️⃣ 𝐂𝐥𝐢𝐜𝐤 𝐛𝐮𝐭𝐭𝐨𝐧 𝐛𝐞𝐥𝐨𝐰  
+1️⃣ Scan QR Code  
+2️⃣ Pay using UPI  
+3️⃣ Click button below  
 """
 
-    kb = InlineKeyboardMarkup()
-    kb.add(InlineKeyboardButton("💳 I HAVE PAID", callback_data="paid"))
+    kb = InlineKeyboardMarkup(row_width=1)
+    kb.add(InlineKeyboardButton("🔥💳 I HAVE PAID", callback_data="paid"))
     kb.add(InlineKeyboardButton("❌ CANCEL ORDER", callback_data="cancel"))
     kb.add(InlineKeyboardButton("⬅ BACK", callback_data="back"))
 
@@ -114,10 +117,10 @@ def buy(c):
 
 
 # =========================
-# CANCEL OFFER (-2 RS)
+# CANCEL ORDER (₹2 OFF OFFER)
 # =========================
 @bot.callback_query_handler(func=lambda c: c.data == "cancel")
-def cancel(c):
+def cancel_order(c):
     store = get_store()
     bot.answer_callback_query(c.id)
 
@@ -138,21 +141,21 @@ def cancel(c):
     img = qr.make_image(fill_color="black", back_color="white")
 
     bio = BytesIO()
-    bio.name = "offer.png"
+    bio.name = "offer_qr.png"
     img.save(bio, "PNG")
     bio.seek(0)
 
     text = f"""
 ❌ *ORDER CANCELLED*
 
-🔥 *SPECIAL OFFER ACTIVATED*
+🔥 *SPECIAL OFFER*
 💸 Old Price: ₹{old_price}
-⚡ New Price: ₹{new_price}
+⚡ Offer Price: ₹{new_price}
 
-😄 Hurry Up!
+😄 Where are you going?
 """
 
-    kb = InlineKeyboardMarkup()
+    kb = InlineKeyboardMarkup(row_width=1)
     kb.add(InlineKeyboardButton("💳 PROCEED PAYMENT", callback_data="buy"))
     kb.add(InlineKeyboardButton("⬅ BACK", callback_data="back"))
 
@@ -168,12 +171,12 @@ def paid(c):
 
     bot.send_message(
         c.message.chat.id,
-        "📸 *Send your payment screenshot for verification*"
+        "📸 Send your payment screenshot for approval"
     )
 
 
 # =========================
-# SCREENSHOT TO ADMIN (FIXED)
+# SCREENSHOT → ADMIN
 # =========================
 @bot.message_handler(content_types=["photo"])
 def screenshot(message):
@@ -200,11 +203,11 @@ def screenshot(message):
         reply_markup=kb
     )
 
-    bot.reply_to(message, "📤 Sent for approval")
+    bot.reply_to(message, "📤 Sent to admin")
 
 
 # =========================
-# APPROVE (NO BUG)
+# APPROVE
 # =========================
 @bot.callback_query_handler(func=lambda c: c.data.startswith("approve_"))
 def approve(c):
