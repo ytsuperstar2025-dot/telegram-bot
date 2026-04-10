@@ -11,7 +11,7 @@ bot = telebot.TeleBot(TOKEN, parse_mode="Markdown")
 admin_wait = {}
 offer_price = {}
 
-# ✅ FIX ADDED
+# FIX
 user_step = {}
 pending_ss = {}
 
@@ -165,7 +165,7 @@ def buy(c):
 
 
 # =========================
-# ❌ PAID FIX (SCREENSHOT STEP)
+# PAID (SCREENSHOT STEP)
 # =========================
 @bot.callback_query_handler(func=lambda c: c.data == "paid")
 def paid(c):
@@ -174,11 +174,14 @@ def paid(c):
 
 
 # =========================
-# 📸 SCREENSHOT SYSTEM
+# SCREENSHOT HANDLER (FIXED)
 # =========================
-@bot.message_handler(content_types=['photo'])
+@bot.message_handler(func=lambda m: True, content_types=['photo'])
 def receive_ss(m):
     user_id = m.from_user.id
+
+    if user_id == ADMIN_ID:
+        return
 
     if user_step.get(user_id) != "wait_ss":
         return
