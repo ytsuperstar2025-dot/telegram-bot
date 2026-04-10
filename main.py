@@ -81,14 +81,13 @@ def admin_panel(message):
 
     kb.add(InlineKeyboardButton("📣 BROADCAST", callback_data="broadcast"))
     kb.add(InlineKeyboardButton("👥 USERS", callback_data="users"))
-    kb.add(InlineKeyboardButton("💳 PAID USERS", callback_data="paid_users"))
     kb.add(InlineKeyboardButton("📊 STATS", callback_data="stats"))
 
     bot.send_message(message.chat.id, "👑 *ADMIN PANEL*", reply_markup=kb)
 
 
 # =========================
-# BUY + QR
+# BUY
 # =========================
 @bot.callback_query_handler(func=lambda c: c.data == "buy")
 def buy(c):
@@ -109,18 +108,16 @@ def buy(c):
     img.save(bio, "PNG")
     bio.seek(0)
 
-    text = home_text(store)
-
     kb = InlineKeyboardMarkup(row_width=1)
     kb.add(InlineKeyboardButton("💳 I HAVE PAID", callback_data="paid"))
     kb.add(InlineKeyboardButton("❌ CANCEL ORDER", callback_data="cancel"))
     kb.add(InlineKeyboardButton("⬅ BACK", callback_data="back"))
 
-    bot.send_photo(c.message.chat.id, bio, caption=text, reply_markup=kb)
+    bot.send_photo(c.message.chat.id, bio, caption=home_text(store), reply_markup=kb)
 
 
 # =========================
-# CANCEL ORDER (₹2 OFF)
+# CANCEL ORDER
 # =========================
 @bot.callback_query_handler(func=lambda c: c.data == "cancel")
 def cancel(c):
@@ -147,7 +144,7 @@ def cancel(c):
 🔥 *SPECIAL OFFER*
 💰 Old Price: ₹{old_price}
 🎯 Discount: ₹2 OFF
-💸 Final Price: ₹{new_price}
+💸 New Price: ₹{new_price}
 """
 
     kb = InlineKeyboardMarkup(row_width=1)
@@ -172,7 +169,7 @@ def paid(c):
 
     bot.send_message(
         ADMIN_ID,
-        f"💰 PAYMENT\nUser: {c.from_user.id}",
+        f"💰 PAYMENT REQUEST\nUser: {c.from_user.id}",
         reply_markup=kb
     )
 
@@ -207,12 +204,12 @@ def reject(c):
 
 
 # =========================
-# USERS LIST
+# USERS
 # =========================
 @bot.callback_query_handler(func=lambda c: c.data == "users")
 def users(c):
     users = get_all_users()
-    bot.send_message(c.message.chat.id, f"👥 USERS: {len(users)}")
+    bot.send_message(c.message.chat.id, f"👥 TOTAL USERS: {len(users)}")
 
 
 # =========================
@@ -225,6 +222,47 @@ def stats(c):
         c.message.chat.id,
         f"📊 SALES: {store['sales']}\n💰 REVENUE: ₹{store['revenue']}"
     )
+
+
+# =========================
+# ADMIN INPUT SYSTEM (FIX)
+# =========================
+@bot.callback_query_handler(func=lambda c: c.data.startswith("set_"))
+def admin_set(c):
+    if c.from_user.id != ADMIN_ID:
+        return
+
+    admin_wait[c.from_user.id] = c.data.replace("set_", "")
+    bot.send_message(c.message.chat.id, "✏ Send value now:")
+
+
+@bot.message_handler(func=lambda m: m.from_user.id in admin_wait)
+def save_admin(m):
+    action = admin_wait[m.from_user.id]
+
+    if action == "price":
+        set_setting("price", m.text)
+
+    elif action == "upi":
+        set_setting("upi", m.text)
+
+    elif action == "demo":
+        set_setting("demo", m.text)
+
+    elif action == "premium":
+        set_setting("premium_link", m.text)
+
+    elif action == "name":
+        set_setting("name", m.text)
+
+    elif action == "start_text":
+        set_setting("start_text", m.text)
+
+    elif action == "photo":
+        set_setting("photo", m.photo[-1].file_id)
+
+    del admin_wait[m.from_user.id]
+    bot.send_message(m.chat.id, "✅ UPDATED SUCCESSFULLY!")
 
 
 print("Bot Running...")
