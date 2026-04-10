@@ -23,7 +23,7 @@ def get_store():
         "name": get_setting("name", ""),
         "premium_link": get_setting("premium_link", ""),
         "start_text": get_setting("start_text", ""),
-        "photo": get_setting("photo", ""),
+        "photo": str(get_setting("photo", "") or ""),
         "sales": int(get_setting("sales", "0")),
         "revenue": int(get_setting("revenue", "0")),
     }
@@ -43,7 +43,7 @@ def home_text(store):
 
 
 # =========================
-# START (PHOTO FIXED)
+# START
 # =========================
 @bot.message_handler(commands=["start"])
 def start(message):
@@ -58,7 +58,6 @@ def start(message):
 
     photo = store.get("photo")
 
-    # ✅ FIXED PHOTO CHECK (MONGO SAFE)
     if photo and photo != "" and photo != "None":
         bot.send_photo(message.chat.id, photo, caption=text, reply_markup=kb)
     else:
@@ -83,7 +82,7 @@ def admin_panel(message):
     kb.add(InlineKeyboardButton("🖼 SET PHOTO", callback_data="set_photo"))
     kb.add(InlineKeyboardButton("✏ SET START TEXT", callback_data="set_start_text"))
 
-    kb.add(InlineKeyboardButton("📣 USERS", callback_data="users"))
+    kb.add(InlineKeyboardButton("👥 USERS", callback_data="users"))
     kb.add(InlineKeyboardButton("📊 STATS", callback_data="stats"))
 
     bot.send_message(message.chat.id, "👑 *ADMIN PANEL*", reply_markup=kb)
@@ -223,7 +222,7 @@ def stats(c):
 
 
 # =========================
-# ADMIN INPUT (MONGO SAFE)
+# ADMIN INPUT SYSTEM
 # =========================
 @bot.callback_query_handler(func=lambda c: c.data.startswith("set_"))
 def admin_set(c):
@@ -257,7 +256,8 @@ def save_admin(m):
         set_setting("start_text", m.text)
 
     elif action == "photo":
-        set_setting("photo", str(m.photo[-1].file_id))
+        if m.photo:
+            set_setting("photo", str(m.photo[-1].file_id))
 
     del admin_wait[m.from_user.id]
     bot.send_message(m.chat.id, "✅ UPDATED SUCCESSFULLY!")
