@@ -1,61 +1,38 @@
-import sqlite3
+from pymongo import MongoClient
+import os
 
-conn = sqlite3.connect("bot.db", check_same_thread=False)
-cur = conn.cursor()
+client = MongoClient(os.getenv("MONGO_URL"))
+db = client["telegram_bot"]
 
-# USERS TABLE
-cur.execute("""
-CREATE TABLE IF NOT EXISTS users (
-    user_id INTEGER PRIMARY KEY
-)
-""")
+users_col = db["users"]
+payments_col = db["payments"]
+settings_col = db["settings"]
 
-# PAYMENTS TABLE
-cur.execute("""
-CREATE TABLE IF NOT EXISTS payments (
-    msg_id INTEGER,
-    user_id INTEGER,
-    status TEXT
-)
-""")
-
-# SETTINGS TABLE (IMPORTANT 🔥)
-cur.execute("""
-CREATE TABLE IF NOT EXISTS settings (
-    key TEXT PRIMARY KEY,
-    value TEXT
-)
-""")
-
-conn.commit()
-
-# -------- USERS --------
+# USERS
 def add_user(uid):
-    cur.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (uid,))
-    conn.commit()
+    users_col.update_one({"user_id": uid}, {"$set": {"user_id": uid}}, upsert=True)
 
 def get_all_users():
-    return cur.execute("SELECT user_id FROM users").fetchall()
+    return list(users_col.find({}, {"_id": 0, "user_id": 1}))
 
-
-# -------- PAYMENTS --------
+# PAYMENTS
 def save_payment(msg_id, user_id, status):
-    cur.execute("INSERT INTO payments VALUES (?, ?, ?)", (msg_id, user_id, status))
-    conn.commit()
+    payments_col.insert_one({
+        "msg_id": msg_id,
+        "user_id": user_id,
+        "status": status
+    })
 
 def get_payment(msg_id):
-    return cur.execute("SELECT msg_id, user_id, status FROM payments WHERE msg_id=?", (msg_id,)).fetchone()
+    return payments_col.find_one({"msg_id": msg_id})
 
 def update_payment(msg_id, status):
-    cur.execute("UPDATE payments SET status=? WHERE msg_id=?", (status, msg_id))
-    conn.commit()
+    payments_col.update_one({"msg_id": msg_id}, {"$set": {"status": status}})
 
-
-# -------- SETTINGS (🔥 MAIN FIX) --------
+# SETTINGS
 def set_setting(key, value):
-    cur.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, value))
-    conn.commit()
+    settings_col.update_one({"key": key}, {"$set": {"value": value}}, upsert=True)
 
 def get_setting(key, default=None):
-    res = cur.execute("SELECT value FROM settings WHERE key=?", (key,)).fetchone()
-    return res[0] if res else default
+    data = settings_col.find_one({"key": key})
+    return data["value"] if data else default
