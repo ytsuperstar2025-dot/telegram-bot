@@ -11,6 +11,10 @@ bot = telebot.TeleBot(TOKEN, parse_mode="Markdown")
 admin_wait = {}
 offer_price = {}
 
+# ✅ ADDED (FIX)
+user_step = {}
+pending_ss = {}
+
 
 # =========================
 # STORE
@@ -30,23 +34,6 @@ def get_store():
 
 
 # =========================
-# PAYMENT TEXT FIX
-# =========================
-def payment_text(store, price):
-    return f"""
-⚡ 𝐏𝐀𝐘𝐌𝐄𝐍𝐓 𝐆𝐀𝐓𝐄𝐖𝐀𝐘
-
-📛 𝐀𝐜𝐜𝐞𝐬𝐬: {store['name'] or "Not Set"}
-💵 𝐀𝐦𝐨𝐮𝐧𝐭: ₹{price}
-🏦 𝐔𝐏𝐈 𝐈𝐃: `{store['upi'] or "Not Set"}`
-
-1️⃣ 𝐒𝐜𝐚𝐧 𝐐𝐑 𝐂𝐨𝐝𝐞  
-2️⃣ 𝐏𝐚𝐲 𝐮𝐬𝐢𝐧𝐠 𝐔𝐏𝐈  
-3️⃣ 𝐂𝐥𝐢𝐜𝐤 𝐛𝐮𝐭𝐭𝐨𝐧 𝐛𝐞𝐥𝐨𝐰
-"""
-
-
-# =========================
 # START
 # =========================
 @bot.message_handler(commands=["start"])
@@ -54,10 +41,7 @@ def start(message):
     store = get_store()
     add_user(message.chat.id)
 
-    base = "⚡ PAYMENT GATEWAY"
-    custom = store["start_text"]
-
-    text = f"{custom}\n\n{base}" if custom else base
+    text = store["start_text"] if store["start_text"] else "⚡ PAYMENT GATEWAY"
 
     kb = InlineKeyboardMarkup()
     kb.add(InlineKeyboardButton("💳 BUY PREMIUM", callback_data="buy"))
@@ -75,7 +59,7 @@ def start(message):
 
 
 # =========================
-# ADMIN PANEL
+# ADMIN PANEL (SAME)
 # =========================
 @bot.message_handler(commands=["admin"])
 def admin_panel(message):
@@ -99,7 +83,7 @@ def admin_panel(message):
 
 
 # =========================
-# ADMIN SELECT
+# ADMIN SET (SAME)
 # =========================
 @bot.callback_query_handler(func=lambda c: c.data.startswith("set_"))
 def admin_set(c):
@@ -111,7 +95,7 @@ def admin_set(c):
 
 
 # =========================
-# ADMIN SAVE (FIXED PHOTO + TEXT)
+# ADMIN INPUT (SAME)
 # =========================
 @bot.message_handler(content_types=['text', 'photo'])
 def save_admin(m):
@@ -135,7 +119,7 @@ def save_admin(m):
 
 
 # =========================
-# BUY (FIXED PAYMENT UI)
+# BUY (SAME)
 # =========================
 @bot.callback_query_handler(func=lambda c: c.data == "buy")
 def buy(c):
@@ -160,13 +144,52 @@ def buy(c):
     kb.add(InlineKeyboardButton("💳 I HAVE PAID", callback_data="paid"))
     kb.add(InlineKeyboardButton("❌ CANCEL ORDER", callback_data="cancel"))
 
-    caption = payment_text(store, price)
-
-    bot.send_photo(c.message.chat.id, bio, caption=caption, reply_markup=kb)
+    bot.send_photo(c.message.chat.id, bio, caption="⚡ ORDER", reply_markup=kb)
 
 
 # =========================
-# CANCEL (FIXED OFFER UI)
+# ❌ PAID FIX (SCREENSHOT FLOW)
+# =========================
+@bot.callback_query_handler(func=lambda c: c.data == "paid")
+def paid(c):
+    user_step[c.from_user.id] = "wait_ss"
+    bot.send_message(c.message.chat.id, "📸 कृपया payment screenshot भेजें")
+
+
+# =========================
+# 📸 SCREENSHOT HANDLER (NEW FIX)
+# =========================
+@bot.message_handler(content_types=['photo'])
+def receive_ss(m):
+    user_id = m.from_user.id
+
+    if user_step.get(user_id) != "wait_ss":
+        return
+
+    file_id = m.photo[-1].file_id
+    store = get_store()
+
+    pending_ss[user_id] = file_id
+    user_step.pop(user_id, None)
+
+    kb = InlineKeyboardMarkup()
+    kb.add(
+        InlineKeyboardButton("✅ APPROVE", callback_data=f"approve_{user_id}"),
+        InlineKeyboardButton("❌ REJECT", callback_data=f"reject_{user_id}")
+    )
+
+    bot.send_photo(
+        ADMIN_ID,
+        file_id,
+        caption=f"💰 PAYMENT REQUEST\nUSER: {user_id}",
+        reply_markup=kb
+    )
+
+    bot.send_message(m.chat.id, "✅ Screenshot sent for approval")
+
+
+# =========================
+# CANCEL (SAME)
 # =========================
 @bot.callback_query_handler(func=lambda c: c.data == "cancel")
 def cancel(c):
@@ -190,15 +213,7 @@ def cancel(c):
     img.save(bio, "PNG")
     bio.seek(0)
 
-    text = f"""
-❌ 𝐎𝐑𝐃𝐄𝐑 𝐂𝐀𝐍𝐂𝐄𝐋𝐋𝐄𝐃
-
-🔥 𝐒𝐏𝐄𝐂𝐈𝐀𝐋 𝐎𝐅𝐅𝐄𝐑
-💰 𝐎𝐥𝐝: ₹{old_price}
-💸 𝐍𝐞𝐰: ₹{new_price}
-
-👉 𝐏𝐚𝐲 𝐧𝐨𝐰 𝐭𝐨 𝐠𝐞𝐭 𝐚𝐜𝐜𝐞𝐬𝐬
-"""
+    text = f"❌ CANCELLED\n🔥 OFFER ₹{new_price}"
 
     kb = InlineKeyboardMarkup()
     kb.add(InlineKeyboardButton("💳 PAY NOW", callback_data="buy"))
@@ -207,24 +222,7 @@ def cancel(c):
 
 
 # =========================
-# PAID
-# =========================
-@bot.callback_query_handler(func=lambda c: c.data == "paid")
-def paid(c):
-    store = get_store()
-
-    kb = InlineKeyboardMarkup()
-    kb.add(
-        InlineKeyboardButton("✅ APPROVE", callback_data=f"approve_{c.from_user.id}"),
-        InlineKeyboardButton("❌ REJECT", callback_data=f"reject_{c.from_user.id}")
-    )
-
-    bot.send_message(ADMIN_ID, f"💰 PAYMENT\nUser: {c.from_user.id}", reply_markup=kb)
-    bot.send_message(c.message.chat.id, "📤 SENT")
-
-
-# =========================
-# APPROVE / REJECT
+# APPROVE FIX (NO DELETE SCREENSHOT)
 # =========================
 @bot.callback_query_handler(func=lambda c: c.data.startswith("approve_"))
 def approve(c):
@@ -236,22 +234,29 @@ def approve(c):
 
     offer_price.pop(user_id, None)
 
-    bot.edit_message_text("✅ APPROVED & LINK SENT", c.message.chat.id, c.message.message_id)
+    bot.edit_message_reply_markup(c.message.chat.id, c.message.message_id, reply_markup=None)
+
+    bot.send_message(c.message.chat.id, "✅ APPROVED & LINK SENT")
     bot.send_message(user_id, store["premium_link"])
 
 
+# =========================
+# REJECT FIX
+# =========================
 @bot.callback_query_handler(func=lambda c: c.data.startswith("reject_"))
 def reject(c):
     user_id = int(c.data.split("_")[1])
 
     offer_price.pop(user_id, None)
 
-    bot.send_message(user_id, "❌ REJECTED")
-    bot.edit_message_text("❌ REJECTED", c.message.chat.id, c.message.message_id)
+    bot.edit_message_reply_markup(c.message.chat.id, c.message.message_id, reply_markup=None)
+
+    bot.send_message(c.message.chat.id, "❌ REJECTED")
+    bot.send_message(user_id, "❌ Payment Rejected")
 
 
 # =========================
-# USERS / STATS
+# USERS / STATS (SAME)
 # =========================
 @bot.callback_query_handler(func=lambda c: c.data == "users")
 def users(c):
