@@ -11,7 +11,6 @@ bot = telebot.TeleBot(TOKEN, parse_mode="Markdown")
 admin_wait = {}
 offer_price = {}
 
-# ✅ ADDED (FIX)
 user_step = {}
 pending_ss = {}
 
@@ -84,7 +83,6 @@ def admin_panel(message):
         return
 
     kb = InlineKeyboardMarkup(row_width=1)
-
     kb.add(InlineKeyboardButton("✏ SET NAME", callback_data="set_name"))
     kb.add(InlineKeyboardButton("💰 SET PRICE", callback_data="set_price"))
     kb.add(InlineKeyboardButton("🏦 SET UPI", callback_data="set_upi"))
@@ -92,7 +90,6 @@ def admin_panel(message):
     kb.add(InlineKeyboardButton("🔗 SET PREMIUM LINK", callback_data="set_premium"))
     kb.add(InlineKeyboardButton("🖼 SET PHOTO", callback_data="set_photo"))
     kb.add(InlineKeyboardButton("✏ SET START TEXT", callback_data="set_start_text"))
-
     kb.add(InlineKeyboardButton("👥 USERS", callback_data="users"))
     kb.add(InlineKeyboardButton("📊 STATS", callback_data="stats"))
 
@@ -100,7 +97,7 @@ def admin_panel(message):
 
 
 # =========================
-# ADMIN SELECT
+# ADMIN SET
 # =========================
 @bot.callback_query_handler(func=lambda c: c.data.startswith("set_"))
 def admin_set(c):
@@ -112,14 +109,11 @@ def admin_set(c):
 
 
 # =========================
-# ADMIN SAVE
+# ADMIN SAVE (FIX SAFE)
 # =========================
-@bot.message_handler(content_types=['text', 'photo'])
+@bot.message_handler(func=lambda m: m.from_user.id in admin_wait)
 def save_admin(m):
-    if m.from_user.id not in admin_wait:
-        return
-
-    action = admin_wait[m.from_user.id]
+    action = admin_wait.get(m.from_user.id)
 
     if action == "photo":
         if m.photo:
@@ -165,18 +159,18 @@ def buy(c):
 
 
 # =========================
-# PAID (SCREENSHOT STEP)
+# PAID
 # =========================
 @bot.callback_query_handler(func=lambda c: c.data == "paid")
 def paid(c):
     user_step[c.from_user.id] = "wait_ss"
-    bot.send_message(c.message.chat.id, "📸 Please send payment screenshot")
+    bot.send_message(c.message.chat.id, "📸 Send payment screenshot now")
 
 
 # =========================
-# SCREENSHOT HANDLER (FIXED)
+# SCREENSHOT FIX (IMPORTANT)
 # =========================
-@bot.message_handler(content_types=['photo'])
+@bot.message_handler(func=lambda m: m.content_type == "photo")
 def receive_ss(m):
     user_id = m.from_user.id
 
@@ -204,7 +198,7 @@ def receive_ss(m):
         reply_markup=kb
     )
 
-    bot.send_message(m.chat.id, "✅ Screenshot sent for approval")
+    bot.send_message(m.chat.id, "✅ Sent for approval")
 
 
 # =========================
