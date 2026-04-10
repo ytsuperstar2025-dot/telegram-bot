@@ -10,9 +10,7 @@ bot = telebot.TeleBot(TOKEN, parse_mode="Markdown")
 
 admin_wait = {}
 offer_price = {}
-
-user_step = {}
-pending_ss = {}
+payment_wait = {}   # ✅ screenshot tracking
 
 
 # =========================
@@ -45,7 +43,7 @@ def payment_text(store, price):
 
 1️⃣ Scan QR  
 2️⃣ Pay using UPI  
-3️⃣ Click button below
+3️⃣ Send screenshot
 """
 
 
@@ -57,7 +55,10 @@ def start(message):
     store = get_store()
     add_user(message.chat.id)
 
-    text = store["start_text"] if store["start_text"] else "⚡ PAYMENT GATEWAY"
+    base = "⚡ PAYMENT GATEWAY"
+    custom = store["start_text"]
+
+    text = f"{custom}\n\n{base}" if custom else base
 
     kb = InlineKeyboardMarkup()
     kb.add(InlineKeyboardButton("💳 BUY PREMIUM", callback_data="buy"))
@@ -83,6 +84,7 @@ def admin_panel(message):
         return
 
     kb = InlineKeyboardMarkup(row_width=1)
+
     kb.add(InlineKeyboardButton("✏ SET NAME", callback_data="set_name"))
     kb.add(InlineKeyboardButton("💰 SET PRICE", callback_data="set_price"))
     kb.add(InlineKeyboardButton("🏦 SET UPI", callback_data="set_upi"))
@@ -90,6 +92,7 @@ def admin_panel(message):
     kb.add(InlineKeyboardButton("🔗 SET PREMIUM LINK", callback_data="set_premium"))
     kb.add(InlineKeyboardButton("🖼 SET PHOTO", callback_data="set_photo"))
     kb.add(InlineKeyboardButton("✏ SET START TEXT", callback_data="set_start_text"))
+
     kb.add(InlineKeyboardButton("👥 USERS", callback_data="users"))
     kb.add(InlineKeyboardButton("📊 STATS", callback_data="stats"))
 
@@ -97,7 +100,7 @@ def admin_panel(message):
 
 
 # =========================
-# ADMIN SET
+# ADMIN SET VALUE
 # =========================
 @bot.callback_query_handler(func=lambda c: c.data.startswith("set_"))
 def admin_set(c):
@@ -108,12 +111,12 @@ def admin_set(c):
     bot.send_message(c.message.chat.id, "✏ Send value now:")
 
 
-# =========================
-# ADMIN SAVE (FIX SAFE)
-# =========================
-@bot.message_handler(func=lambda m: m.from_user.id in admin_wait)
+@bot.message_handler(content_types=['text', 'photo'])
 def save_admin(m):
-    action = admin_wait.get(m.from_user.id)
+    if m.from_user.id not in admin_wait:
+        return
+
+    action = admin_wait[m.from_user.id]
 
     if action == "photo":
         if m.photo:
@@ -159,50 +162,7 @@ def buy(c):
 
 
 # =========================
-# PAID
-# =========================
-@bot.callback_query_handler(func=lambda c: c.data == "paid")
-def paid(c):
-    user_step[c.from_user.id] = "wait_ss"
-    bot.send_message(c.message.chat.id, "📸 Send payment screenshot now")
-
-
-# =========================
-# SCREENSHOT FIX (IMPORTANT)
-# =========================
-@bot.message_handler(func=lambda m: m.content_type == "photo")
-def receive_ss(m):
-    user_id = m.from_user.id
-
-    if user_id == ADMIN_ID:
-        return
-
-    if user_step.get(user_id) != "wait_ss":
-        return
-
-    file_id = m.photo[-1].file_id
-
-    pending_ss[user_id] = file_id
-    user_step.pop(user_id, None)
-
-    kb = InlineKeyboardMarkup()
-    kb.add(
-        InlineKeyboardButton("✅ APPROVE", callback_data=f"approve_{user_id}"),
-        InlineKeyboardButton("❌ REJECT", callback_data=f"reject_{user_id}")
-    )
-
-    bot.send_photo(
-        ADMIN_ID,
-        file_id,
-        caption=f"💰 PAYMENT REQUEST\nUser: {user_id}",
-        reply_markup=kb
-    )
-
-    bot.send_message(m.chat.id, "✅ Sent for approval")
-
-
-# =========================
-# CANCEL
+# CANCEL OFFER
 # =========================
 @bot.callback_query_handler(func=lambda c: c.data == "cancel")
 def cancel(c):
@@ -229,13 +189,56 @@ def cancel(c):
     text = f"""
 ❌ ORDER CANCELLED
 
-🔥 OFFER ₹{new_price}
+💰 Old: ₹{old_price}
+🔥 New Offer: ₹{new_price}
+
+👉 After payment send screenshot
 """
 
     kb = InlineKeyboardMarkup()
     kb.add(InlineKeyboardButton("💳 PAY NOW", callback_data="buy"))
 
     bot.send_photo(c.message.chat.id, bio, caption=text, reply_markup=kb)
+
+
+# =========================
+# USER CLICKED PAID
+# =========================
+@bot.callback_query_handler(func=lambda c: c.data == "paid")
+def paid(c):
+    user_id = c.from_user.id
+
+    payment_wait[user_id] = True
+
+    bot.send_message(c.message.chat.id, "📸 Payment ke baad screenshot send karo")
+
+
+# =========================
+# SCREENSHOT HANDLER
+# =========================
+@bot.message_handler(content_types=['photo'])
+def screenshot(m):
+    user_id = m.from_user.id
+
+    if not payment_wait.get(user_id):
+        return
+
+    file_id = m.photo[-1].file_id
+
+    kb = InlineKeyboardMarkup()
+    kb.add(
+        InlineKeyboardButton("✅ APPROVE", callback_data=f"approve_{user_id}"),
+        InlineKeyboardButton("❌ REJECT", callback_data=f"reject_{user_id}")
+    )
+
+    msg = bot.send_photo(
+        ADMIN_ID,
+        file_id,
+        caption=f"💰 PAYMENT SCREENSHOT\nUser: {user_id}",
+        reply_markup=kb
+    )
+
+    payment_wait[user_id] = {"msg_id": msg.message_id}
 
 
 # =========================
@@ -250,9 +253,15 @@ def approve(c):
     set_setting("revenue", str(int(store["revenue"]) + int(store["price"])))
 
     offer_price.pop(user_id, None)
+    payment_wait.pop(user_id, None)
 
-    bot.edit_message_reply_markup(c.message.chat.id, c.message.message_id, reply_markup=None)
-    bot.send_message(c.message.chat.id, "✅ APPROVED & LINK SENT")
+    bot.edit_message_caption(
+        "✅ APPROVED\n🎉 Payment Verified",
+        chat_id=c.message.chat.id,
+        message_id=c.message.message_id
+    )
+
+    bot.send_message(user_id, "✅ Payment Approved!")
     bot.send_message(user_id, store["premium_link"])
 
 
@@ -264,9 +273,14 @@ def reject(c):
     user_id = int(c.data.split("_")[1])
 
     offer_price.pop(user_id, None)
+    payment_wait.pop(user_id, None)
 
-    bot.edit_message_reply_markup(c.message.chat.id, c.message.message_id, reply_markup=None)
-    bot.send_message(c.message.chat.id, "❌ REJECTED")
+    bot.edit_message_caption(
+        "❌ REJECTED\nPayment Not Verified",
+        chat_id=c.message.chat.id,
+        message_id=c.message.message_id
+    )
+
     bot.send_message(user_id, "❌ Payment Rejected")
 
 
