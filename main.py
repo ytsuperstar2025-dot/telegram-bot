@@ -2,46 +2,37 @@ import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 import qrcode
 from io import BytesIO
-import json
-import os
 
 from config import TOKEN, ADMIN_ID
-from db import add_user, save_payment, get_payment, update_payment, get_all_users
+from db import add_user, save_payment, get_payment, update_payment, get_all_users, set_setting, get_setting
 
 bot = telebot.TeleBot(TOKEN, parse_mode="Markdown")
 
-# LOAD DATA
-def load_data():
-    if os.path.exists("data.json"):
-        with open("data.json", "r") as f:
-            return json.load(f)
-    else:
-        return {
-            "upi": "yourupi@bank",
-            "demo": "",
-            "price": "29",
-            "name": "Premium Access",
-            "premium_link": "",
-            "start_text": "",
-            "sales": 0,
-            "revenue": 0,
-            "photo": None
-        }
-
-store = load_data()
 admin_wait = {}
 
-def save_data():
-    with open("data.json", "w") as f:
-        json.dump(store, f)
+# 🔥 STORE FROM DB (PERMANENT)
+def get_store():
+    return {
+        "upi": get_setting("upi", "yourupi@bank"),
+        "demo": get_setting("demo", ""),
+        "price": get_setting("price", "29"),
+        "name": get_setting("name", "Premium Access"),
+        "premium_link": get_setting("premium_link", ""),
+        "start_text": get_setting("start_text", ""),
+        "sales": int(get_setting("sales", "0")),
+        "revenue": int(get_setting("revenue", "0")),
+        "photo": get_setting("photo", None)
+    }
 
 def is_admin(uid):
     return uid == ADMIN_ID
 
-def home_text():
+
+def home_text(store):
     return f"*{store['name']}*\n\n{store['start_text']}\n\nPrice: Rs {store['price']}"
 
-def home_markup():
+
+def home_markup(store):
     kb = InlineKeyboardMarkup()
     kb.add(InlineKeyboardButton("Buy Premium", callback_data="buy"))
     kb.add(InlineKeyboardButton("Watch Demo", url=store["demo"]))
@@ -50,16 +41,18 @@ def home_markup():
 
 @bot.message_handler(commands=["start"])
 def start(message):
+    store = get_store()
     add_user(message.chat.id)
 
     if store["photo"]:
-        bot.send_photo(message.chat.id, store["photo"], caption=home_text(), reply_markup=home_markup())
+        bot.send_photo(message.chat.id, store["photo"], caption=home_text(store), reply_markup=home_markup(store))
     else:
-        bot.send_message(message.chat.id, home_text(), reply_markup=home_markup())
+        bot.send_message(message.chat.id, home_text(store), reply_markup=home_markup(store))
 
 
 @bot.callback_query_handler(func=lambda c: c.data == "buy")
 def buy(c):
+    store = get_store()
     bot.answer_callback_query(c.id)
 
     upi_link = f"upi://pay?pa={store['upi']}&am={store['price']}&cu=INR"
@@ -74,8 +67,20 @@ def buy(c):
 
     kb = InlineKeyboardMarkup()
     kb.add(InlineKeyboardButton("I Have Paid", callback_data="paid"))
+    kb.add(InlineKeyboardButton("⬅ Back", callback_data="back"))  # 🔥 BACK BUTTON
 
     bot.send_photo(c.message.chat.id, bio, caption=text, reply_markup=kb)
+
+
+@bot.callback_query_handler(func=lambda c: c.data == "back")
+def back(c):
+    store = get_store()
+    bot.answer_callback_query(c.id)
+
+    if store["photo"]:
+        bot.send_photo(c.message.chat.id, store["photo"], caption=home_text(store), reply_markup=home_markup(store))
+    else:
+        bot.send_message(c.message.chat.id, home_text(store), reply_markup=home_markup(store))
 
 
 @bot.callback_query_handler(func=lambda c: c.data == "paid")
@@ -86,11 +91,11 @@ def paid(c):
 
 @bot.message_handler(content_types=["photo"])
 def payment_ss(message):
+    store = get_store()
 
     if message.from_user.id == ADMIN_ID and admin_wait.get(message.from_user.id) == "photo":
-        store["photo"] = message.photo[-1].file_id
+        set_setting("photo", message.photo[-1].file_id)
         admin_wait.pop(message.from_user.id)
-        save_data()
         bot.reply_to(message, "Photo updated ✅")
         return
 
@@ -106,7 +111,6 @@ def payment_ss(message):
     )
 
     sent = bot.send_photo(ADMIN_ID, message.photo[-1].file_id, caption=caption, reply_markup=kb)
-
     save_payment(sent.message_id, message.from_user.id, "pending")
 
     bot.reply_to(message, "Screenshot sent to admin ✅")
@@ -114,6 +118,7 @@ def payment_ss(message):
 
 @bot.callback_query_handler(func=lambda c: c.data == "approve")
 def approve(c):
+    store = get_store()
     data = get_payment(c.message.message_id)
 
     if not data:
@@ -128,17 +133,15 @@ def approve(c):
 
     update_payment(msg_id, "approved")
 
-    store["sales"] += 1
-    store["revenue"] += int(store["price"])
-    save_data()
+    set_setting("sales", store["sales"] + 1)
+    set_setting("revenue", store["revenue"] + int(store["price"]))
 
-    new_caption = c.message.caption + "\n\n✅ *APPROVED & LINK SENT*\n💰 Added"
+    new_caption = c.message.caption + "\n\n✅ *APPROVED*"
 
     bot.edit_message_caption(chat_id=c.message.chat.id, message_id=msg_id, caption=new_caption)
     bot.edit_message_reply_markup(chat_id=c.message.chat.id, message_id=msg_id, reply_markup=None)
 
     bot.send_message(user_id, f"Payment Approved ✅\n\nLink:\n{store['premium_link']}")
-
     bot.answer_callback_query(c.id, "Approved")
 
 
@@ -154,7 +157,7 @@ def reject(c):
     bot.answer_callback_query(c.id, "Rejected")
 
 
-# 🔥 FULL ADMIN PANEL
+# 🔥 ADMIN PANEL
 @bot.message_handler(commands=["admin"])
 def admin(message):
     if not is_admin(message.from_user.id):
@@ -173,9 +176,7 @@ def admin(message):
         InlineKeyboardButton("Set Product Name", callback_data="admin_name"),
         InlineKeyboardButton("Set Start Text", callback_data="admin_starttext")
     )
-    kb.add(
-        InlineKeyboardButton("Set Photo", callback_data="admin_photo")
-    )
+    kb.add(InlineKeyboardButton("Set Photo", callback_data="admin_photo"))
     kb.add(
         InlineKeyboardButton("Broadcast", callback_data="admin_broadcast"),
         InlineKeyboardButton("Stats", callback_data="admin_stats")
@@ -195,7 +196,7 @@ def admin_btn(c):
         users = get_all_users()
         bot.send_message(
             c.message.chat.id,
-            f"Users: {len(users)}\nSales: {store['sales']}\nRevenue: Rs {store['revenue']}"
+            f"Users: {len(users)}\nSales: {get_store()['sales']}\nRevenue: Rs {get_store()['revenue']}"
         )
         return
 
@@ -224,22 +225,22 @@ def admin_input(message):
     action = admin_wait.pop(message.from_user.id)
 
     if action == "price":
-        store["price"] = message.text.strip()
+        set_setting("price", message.text.strip())
 
     elif action == "upi":
-        store["upi"] = message.text.strip()
+        set_setting("upi", message.text.strip())
 
     elif action == "link":
-        store["premium_link"] = message.text.strip()
+        set_setting("premium_link", message.text.strip())
 
     elif action == "demo":
-        store["demo"] = message.text.strip()
+        set_setting("demo", message.text.strip())
 
     elif action == "name":
-        store["name"] = message.text.strip()
+        set_setting("name", message.text.strip())
 
     elif action == "starttext":
-        store["start_text"] = message.text.strip()
+        set_setting("start_text", message.text.strip())
 
     elif action == "broadcast":
         sent = 0
@@ -252,7 +253,6 @@ def admin_input(message):
         bot.reply_to(message, f"Broadcast sent to {sent} users")
         return
 
-    save_data()
     bot.reply_to(message, "Updated successfully ✅")
 
 
