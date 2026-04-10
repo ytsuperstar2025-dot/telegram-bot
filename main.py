@@ -21,7 +21,8 @@ def get_store():
         "premium_link": get_setting("premium_link", ""),
         "start_text": get_setting("start_text", ""),
         "sales": int(get_setting("sales", "0")),
-        "revenue": int(get_setting("revenue", "0"))
+        "revenue": int(get_setting("revenue", "0")),
+        "photo": get_setting("photo", None)
     }
 
 
@@ -29,10 +30,17 @@ def get_store():
 # HOME TEXT
 # =========================
 def home_text(store):
-    if store["start_text"]:
-        return store["start_text"]
+    return f"""
+⚡ *PAYMENT GATEWAY*
 
-    return f"*{store['name']}*\n💰 Price: ₹{store['price']}"
+📛 *Access:* {store['name']}
+💵 *Amount:* ₹{store['price']}
+🏦 *UPI ID:* `{store['upi']}`
+
+1️⃣ Scan QR Code  
+2️⃣ Pay using UPI  
+3️⃣ Click *I HAVE PAID*
+"""
 
 
 def home_markup(store):
@@ -50,11 +58,10 @@ def start(message):
     store = get_store()
     add_user(message.chat.id)
 
-    bot.send_message(
-        message.chat.id,
-        home_text(store),
-        reply_markup=home_markup(store)
-    )
+    if store["photo"]:
+        bot.send_photo(message.chat.id, store["photo"], caption=home_text(store), reply_markup=home_markup(store))
+    else:
+        bot.send_message(message.chat.id, home_text(store), reply_markup=home_markup(store))
 
 
 # =========================
@@ -65,11 +72,10 @@ def back(c):
     store = get_store()
     bot.answer_callback_query(c.id)
 
-    bot.send_message(
-        c.message.chat.id,
-        home_text(store),
-        reply_markup=home_markup(store)
-    )
+    if store["photo"]:
+        bot.send_photo(c.message.chat.id, store["photo"], caption=home_text(store), reply_markup=home_markup(store))
+    else:
+        bot.send_message(c.message.chat.id, home_text(store), reply_markup=home_markup(store))
 
 
 # =========================
@@ -80,9 +86,16 @@ def buy(c):
     store = get_store()
     bot.answer_callback_query(c.id)
 
-    upi_link = f"upi://pay?pa={store['upi']}&am={store['price']}&cu=INR"
+    upi = store["upi"].strip()
 
-    qr = qrcode.QRCode(version=1, box_size=10, border=4)
+    upi_link = f"upi://pay?pa={upi}&am={store['price']}&cu=INR"
+
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_L,
+        box_size=10,
+        border=4,
+    )
     qr.add_data(upi_link)
     qr.make(fit=True)
 
@@ -93,48 +106,46 @@ def buy(c):
     img.save(bio, "PNG")
     bio.seek(0)
 
-    caption = f"""
-⚡ *PAYMENT GATEWAY*
-
-📦 *Access:* {store['name']}
-💰 *Price:* ₹{store['price']}
-
-1️⃣ Scan QR Code  
-2️⃣ Pay using UPI  
-3️⃣ Click *I HAVE PAID*
-"""
-
-    kb = InlineKeyboardMarkup(row_width=1)
+    kb = InlineKeyboardMarkup(row_width=2)
     kb.add(
-        InlineKeyboardButton("🔥 I HAVE PAID", callback_data="paid"),
-        InlineKeyboardButton("❌ CANCEL ORDER", callback_data="cancel"),
+        InlineKeyboardButton("💳 I HAVE PAID", callback_data="paid"),
+        InlineKeyboardButton("❌ CANCEL ORDER", callback_data="cancel")
+    )
+    kb.add(
         InlineKeyboardButton("⬅ BACK", callback_data="back")
     )
 
-    bot.send_photo(c.message.chat.id, bio, caption=caption, reply_markup=kb)
+    bot.send_photo(c.message.chat.id, bio, caption=home_text(store), reply_markup=kb)
 
 
 # =========================
-# CANCEL ORDER (₹2 OFF)
+# CANCEL OFFER (₹2 OFF)
 # =========================
 @bot.callback_query_handler(func=lambda c: c.data == "cancel")
 def cancel_order(c):
     store = get_store()
     bot.answer_callback_query(c.id)
 
-    old_price = int(store["price"])
-    new_price = max(1, old_price - 2)
+    new_price = int(store["price"]) - 2
+    if new_price < 1:
+        new_price = 1
 
-    upi_link = f"upi://pay?pa={store['upi']}&am={new_price}&cu=INR"
+    upi = store["upi"].strip()
+    upi_link = f"upi://pay?pa={upi}&am={new_price}&cu=INR"
 
-    qr = qrcode.QRCode(version=1, box_size=10, border=4)
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_L,
+        box_size=10,
+        border=4,
+    )
     qr.add_data(upi_link)
     qr.make(fit=True)
 
     img = qr.make_image(fill_color="black", back_color="white")
 
     bio = BytesIO()
-    bio.name = "offer.png"
+    bio.name = "offer_qr.png"
     img.save(bio, "PNG")
     bio.seek(0)
 
@@ -142,13 +153,13 @@ def cancel_order(c):
 ❌ *ORDER CANCELLED*
 
 🔥 *SPECIAL OFFER*
-💸 Old Price: ₹{old_price}
-⚡ New Price: ₹{new_price}
+💸 Old Price: ₹{store['price']}
+⚡ Offer Price: ₹{new_price}
 
 😄 Where are you going?
 """
 
-    kb = InlineKeyboardMarkup(row_width=1)
+    kb = InlineKeyboardMarkup()
     kb.add(
         InlineKeyboardButton("💳 PROCEED PAYMENT", callback_data="buy"),
         InlineKeyboardButton("⬅ BACK", callback_data="back")
@@ -158,62 +169,49 @@ def cancel_order(c):
 
 
 # =========================
-# PAID → SCREENSHOT REQUEST
+# PAID → ADMIN
 # =========================
 @bot.callback_query_handler(func=lambda c: c.data == "paid")
 def paid(c):
-    bot.answer_callback_query(c.id)
-
-    bot.send_message(
-        c.message.chat.id,
-        "📸 Send payment screenshot for approval"
-    )
-
-
-# =========================
-# SCREENSHOT → ADMIN
-# =========================
-@bot.message_handler(content_types=["photo"])
-def screenshot(message):
-    if message.from_user.id == ADMIN_ID:
-        return
-
     store = get_store()
+    bot.answer_callback_query(c.id)
 
     kb = InlineKeyboardMarkup()
     kb.add(
-        InlineKeyboardButton("✅ APPROVE", callback_data=f"approve_{message.from_user.id}"),
-        InlineKeyboardButton("❌ REJECT", callback_data=f"reject_{message.from_user.id}")
+        InlineKeyboardButton("✅ APPROVE", callback_data=f"approve_{c.from_user.id}"),
+        InlineKeyboardButton("❌ REJECT", callback_data=f"reject_{c.from_user.id}")
     )
 
-    bot.send_photo(
+    bot.send_message(
         ADMIN_ID,
-        message.photo[-1].file_id,
-        caption=f"""
-💰 *PAYMENT PROOF*
-
-👤 User: `{message.from_user.id}`
-💵 Amount: ₹{store['price']}
-""",
+        f"💰 *NEW PAYMENT*\n\nUser: `{c.from_user.id}`\nAmount: ₹{store['price']}",
         reply_markup=kb
     )
 
-    bot.reply_to(message, "📤 Sent to admin")
+    bot.send_message(c.message.chat.id, "⏳ Sent for approval...")
 
 
 # =========================
-# APPROVE
+# APPROVE (SCREENSHOT SAFE FIX)
 # =========================
 @bot.callback_query_handler(func=lambda c: c.data.startswith("approve_"))
 def approve(c):
     user_id = int(c.data.split("_")[1])
     store = get_store()
 
-    set_setting("sales", str(int(get_setting("sales", "0")) + 1))
-    set_setting("revenue", str(int(get_setting("revenue", "0")) + int(store["price"])))
+    set_setting("sales", store["sales"] + 1)
+    set_setting("revenue", store["revenue"] + int(store["price"]))
 
-    bot.send_message(c.message.chat.id, "✅ APPROVED & LINK SENT")
-    bot.send_message(user_id, f"🎉 Payment Approved!\n\n🔗 {store['premium_link']}")
+    # ❌ DO NOT edit screenshot message (FIX)
+    bot.send_message(
+        c.message.chat.id,
+        "✅ APPROVED & LINK SENT\n💰 ₹29 Added to Stats."
+    )
+
+    bot.send_message(
+        user_id,
+        f"🎉 *Payment Approved!*\n\n🔗 {store['premium_link']}"
+    )
 
     bot.answer_callback_query(c.id)
 
@@ -225,44 +223,14 @@ def approve(c):
 def reject(c):
     user_id = int(c.data.split("_")[1])
 
-    bot.send_message(user_id, "❌ Payment Rejected")
-    bot.send_message(c.message.chat.id, "❌ REJECTED")
+    bot.send_message(user_id, "❌ Payment rejected")
 
-    bot.answer_callback_query(c.id)
-
-
-# =========================
-# ADMIN PANEL (RESTORED OLD)
-# =========================
-@bot.message_handler(commands=["admin"])
-def admin_panel(message):
-    if message.chat.id != ADMIN_ID:
-        return
-
-    store = get_store()
-
-    text = f"""
-🛠 *ADMIN PANEL*
-
-📦 Product: {store['name']}
-💰 Price: ₹{store['price']}
-🏦 UPI: `{store['upi']}`
-🔗 Link: {store['premium_link']}
-
-📊 Sales: {store['sales']}
-💰 Revenue: ₹{store['revenue']}
-"""
-
-    kb = InlineKeyboardMarkup(row_width=1)
-    kb.add(
-        InlineKeyboardButton("✏ SET PRICE", callback_data="set_price"),
-        InlineKeyboardButton("✏ SET UPI", callback_data="set_upi"),
-        InlineKeyboardButton("✏ SET NAME", callback_data="set_name"),
-        InlineKeyboardButton("✏ SET LINK", callback_data="set_link"),
-        InlineKeyboardButton("⬅ BACK", callback_data="back")
+    bot.send_message(
+        c.message.chat.id,
+        "❌ REJECTED"
     )
 
-    bot.send_message(message.chat.id, text, reply_markup=kb)
+    bot.answer_callback_query(c.id)
 
 
 print("Bot running...")
