@@ -78,21 +78,32 @@ def buy(c):
     store = get_store()
     bot.answer_callback_query(c.id)
 
-    upi_link = f"upi://pay?pa={store['upi']}&am={store['price']}&cu=INR"
-    qr = qrcode.make(upi_link)
+    upi = store.get("upi")
 
-    bio = BytesIO()
-    bio.name = 'qr.png'
-    qr.save(bio, 'PNG')
-    bio.seek(0)
+    if not upi or "@" not in upi:
+        bot.send_message(c.message.chat.id, "❌ Invalid UPI set karo admin panel se")
+        return
 
-    text = f"Pay Rs {store['price']} to `{store['upi']}`\n\nThen send screenshot."
+    try:
+        upi_link = f"upi://pay?pa={upi}&am={store['price']}&cu=INR"
+        qr = qrcode.make(upi_link)
 
-    kb = InlineKeyboardMarkup()
-    kb.add(InlineKeyboardButton("I Have Paid", callback_data="paid"))
-    kb.add(InlineKeyboardButton("⬅ Back", callback_data="back"))
+        bio = BytesIO()
+        bio.name = 'qr.png'
+        qr.save(bio, 'PNG')
+        bio.seek(0)
 
-    bot.send_photo(c.message.chat.id, bio, caption=text, reply_markup=kb)
+        text = f"Pay Rs {store['price']} to `{upi}`\n\nThen send screenshot."
+
+        kb = InlineKeyboardMarkup()
+        kb.add(InlineKeyboardButton("I Have Paid", callback_data="paid"))
+        kb.add(InlineKeyboardButton("⬅ Back", callback_data="back"))
+
+        bot.send_photo(c.message.chat.id, bio, caption=text, reply_markup=kb)
+
+    except Exception as e:
+        print("QR ERROR:", e)
+        bot.send_message(c.message.chat.id, "❌ QR generate failed")
 
 
 @bot.callback_query_handler(func=lambda c: c.data == "back")
