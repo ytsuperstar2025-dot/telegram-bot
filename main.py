@@ -30,6 +30,23 @@ def get_store():
 
 
 # =========================
+# PAYMENT TEXT FIX
+# =========================
+def payment_text(store, price):
+    return f"""
+⚡ 𝐏𝐀𝐘𝐌𝐄𝐍𝐓 𝐆𝐀𝐓𝐄𝐖𝐀𝐘
+
+📛 𝐀𝐜𝐜𝐞𝐬𝐬: {store['name'] or "Not Set"}
+💵 𝐀𝐦𝐨𝐮𝐧𝐭: ₹{price}
+🏦 𝐔𝐏𝐈 𝐈𝐃: `{store['upi'] or "Not Set"}`
+
+1️⃣ 𝐒𝐜𝐚𝐧 𝐐𝐑 𝐂𝐨𝐝𝐞  
+2️⃣ 𝐏𝐚𝐲 𝐮𝐬𝐢𝐧𝐠 𝐔𝐏𝐈  
+3️⃣ 𝐂𝐥𝐢𝐜𝐤 𝐛𝐮𝐭𝐭𝐨𝐧 𝐛𝐞𝐥𝐨𝐰
+"""
+
+
+# =========================
 # START
 # =========================
 @bot.message_handler(commands=["start"])
@@ -37,7 +54,10 @@ def start(message):
     store = get_store()
     add_user(message.chat.id)
 
-    text = store["start_text"] if store["start_text"] else "⚡ PAYMENT GATEWAY"
+    base = "⚡ PAYMENT GATEWAY"
+    custom = store["start_text"]
+
+    text = f"{custom}\n\n{base}" if custom else base
 
     kb = InlineKeyboardMarkup()
     kb.add(InlineKeyboardButton("💳 BUY PREMIUM", callback_data="buy"))
@@ -79,7 +99,7 @@ def admin_panel(message):
 
 
 # =========================
-# ADMIN ACTION SELECT
+# ADMIN SELECT
 # =========================
 @bot.callback_query_handler(func=lambda c: c.data.startswith("set_"))
 def admin_set(c):
@@ -91,7 +111,7 @@ def admin_set(c):
 
 
 # =========================
-# ADMIN INPUT HANDLER (FIXED CORE)
+# ADMIN SAVE (FIXED PHOTO + TEXT)
 # =========================
 @bot.message_handler(content_types=['text', 'photo'])
 def save_admin(m):
@@ -102,41 +122,20 @@ def save_admin(m):
 
     if action == "photo":
         if m.photo:
-            file_id = m.photo[-1].file_id
-            set_setting("photo", file_id)
-            bot.send_message(m.chat.id, "🖼 PHOTO UPDATED SUCCESSFULLY")
-        else:
-            bot.send_message(m.chat.id, "❌ Send only photo")
-
+            set_setting("photo", m.photo[-1].file_id)
+            bot.send_message(m.chat.id, "🖼 PHOTO UPDATED")
         admin_wait.pop(m.from_user.id, None)
         return
 
     if m.text:
-        if action == "price":
-            set_setting("price", m.text)
-
-        elif action == "upi":
-            set_setting("upi", m.text)
-
-        elif action == "demo":
-            set_setting("demo", m.text)
-
-        elif action == "premium":
-            set_setting("premium_link", m.text)
-
-        elif action == "name":
-            set_setting("name", m.text)
-
-        elif action == "start_text":
-            set_setting("start_text", m.text)
-
-        bot.send_message(m.chat.id, "✅ UPDATED SUCCESSFULLY!")
+        set_setting(action, m.text)
+        bot.send_message(m.chat.id, "✅ UPDATED")
 
     admin_wait.pop(m.from_user.id, None)
 
 
 # =========================
-# BUY
+# BUY (FIXED PAYMENT UI)
 # =========================
 @bot.callback_query_handler(func=lambda c: c.data == "buy")
 def buy(c):
@@ -161,11 +160,13 @@ def buy(c):
     kb.add(InlineKeyboardButton("💳 I HAVE PAID", callback_data="paid"))
     kb.add(InlineKeyboardButton("❌ CANCEL ORDER", callback_data="cancel"))
 
-    bot.send_photo(c.message.chat.id, bio, caption="⚡ ORDER", reply_markup=kb)
+    caption = payment_text(store, price)
+
+    bot.send_photo(c.message.chat.id, bio, caption=caption, reply_markup=kb)
 
 
 # =========================
-# CANCEL (OFFER)
+# CANCEL (FIXED OFFER UI)
 # =========================
 @bot.callback_query_handler(func=lambda c: c.data == "cancel")
 def cancel(c):
@@ -189,7 +190,15 @@ def cancel(c):
     img.save(bio, "PNG")
     bio.seek(0)
 
-    text = f"❌ CANCELLED\n🔥 OFFER ₹{new_price}"
+    text = f"""
+❌ 𝐎𝐑𝐃𝐄𝐑 𝐂𝐀𝐍𝐂𝐄𝐋𝐋𝐄𝐃
+
+🔥 𝐒𝐏𝐄𝐂𝐈𝐀𝐋 𝐎𝐅𝐅𝐄𝐑
+💰 𝐎𝐥𝐝: ₹{old_price}
+💸 𝐍𝐞𝐰: ₹{new_price}
+
+👉 𝐏𝐚𝐲 𝐧𝐨𝐰 𝐭𝐨 𝐠𝐞𝐭 𝐚𝐜𝐜𝐞𝐬𝐬
+"""
 
     kb = InlineKeyboardMarkup()
     kb.add(InlineKeyboardButton("💳 PAY NOW", callback_data="buy"))
@@ -222,8 +231,8 @@ def approve(c):
     user_id = int(c.data.split("_")[1])
     store = get_store()
 
-    set_setting("sales", str(store["sales"] + 1))
-    set_setting("revenue", str(store["revenue"] + int(store["price"])))
+    set_setting("sales", str(int(store["sales"]) + 1))
+    set_setting("revenue", str(int(store["revenue"]) + int(store["price"])))
 
     offer_price.pop(user_id, None)
 
