@@ -11,7 +11,7 @@ bot = telebot.TeleBot(TOKEN, parse_mode="Markdown")
 admin_wait = {}
 offer_price = {}
 
-# FIX
+# ✅ ADDED (FIX)
 user_step = {}
 pending_ss = {}
 
@@ -170,13 +170,13 @@ def buy(c):
 @bot.callback_query_handler(func=lambda c: c.data == "paid")
 def paid(c):
     user_step[c.from_user.id] = "wait_ss"
-    bot.send_message(c.message.chat.id, "📸 कृपया payment screenshot भेजें")
+    bot.send_message(c.message.chat.id, "📸 Please send payment screenshot")
 
 
 # =========================
 # SCREENSHOT HANDLER (FIXED)
 # =========================
-@bot.message_handler(func=lambda m: True, content_types=['photo'])
+@bot.message_handler(content_types=['photo'])
 def receive_ss(m):
     user_id = m.from_user.id
 
@@ -200,7 +200,7 @@ def receive_ss(m):
     bot.send_photo(
         ADMIN_ID,
         file_id,
-        caption=f"💰 PAYMENT REQUEST\nUSER: {user_id}",
+        caption=f"💰 PAYMENT REQUEST\nUser: {user_id}",
         reply_markup=kb
     )
 
@@ -232,7 +232,11 @@ def cancel(c):
     img.save(bio, "PNG")
     bio.seek(0)
 
-    text = f"❌ CANCELLED\n🔥 OFFER ₹{new_price}"
+    text = f"""
+❌ ORDER CANCELLED
+
+🔥 OFFER ₹{new_price}
+"""
 
     kb = InlineKeyboardMarkup()
     kb.add(InlineKeyboardButton("💳 PAY NOW", callback_data="buy"))
