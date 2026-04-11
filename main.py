@@ -55,7 +55,7 @@ def payment_text(store, price):
 # =========================
 @bot.message_handler(commands=["start"])
 def start(message):
-    base = "⚡ 𝐏𝐀𝐘𝐌𝐄𝐍𝐓 𝐆𝐀𝐓𝐄𝐖𝐀𝐘"
+    base = ""
     store = get_store()
     add_user(message.chat.id)
 
