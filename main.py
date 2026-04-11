@@ -234,16 +234,31 @@ def cancel(c):
     img.save(bio, "PNG")
     bio.seek(0)
 
+    # 🔥 PRO HIGH-CONVERTING TEXT
     text = f"""
-❌ ORDER CANCELLED
+❌ *ORDER CANCELLED*
 
-🔥 SPECIAL OFFER
-💰 OLD: ₹{old_price}
-💸 NEW: ₹{new_price}
+😔 Miss ho gaya...
+
+🔥 *EXCLUSIVE DEAL UNLOCKED*
+
+━━━━━━━━━━━━━━━
+💰 ~₹{old_price}~ ❌
+🎉 *Now Only:* ₹{new_price} ✅
+━━━━━━━━━━━━━━━
+
+⏳ *Only few users can grab this deal*
+⚡ *Instant Access*
+🔐 *Private Premium Content*
+
+🚨 *Hurry! Offer may expire anytime*
+
+👇 *Tap below to grab now*
 """
 
+    # 🔥 PRO BUTTON
     kb = InlineKeyboardMarkup()
-    kb.add(InlineKeyboardButton("💳 PAY NOW", callback_data="buy"))
+    kb.add(InlineKeyboardButton("🔥 LIMITED OFFER - GRAB NOW", callback_data="buy"))
 
     bot.send_photo(c.message.chat.id, bio, caption=text, reply_markup=kb)
 
