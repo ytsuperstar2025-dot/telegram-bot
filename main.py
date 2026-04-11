@@ -55,14 +55,15 @@ def payment_text(store, price):
 # =========================
 @bot.message_handler(commands=["start"])
 def start(message):
-    base = "⚡ 𝐏𝐀𝐘𝐌𝐄𝐍𝐓 𝐆𝐀𝐓𝐄𝐖𝐀𝐘"
     store = get_store()
-    add_user(message.chat.id)
+add_user(message.chat.id)
 
-    
-    custom = store["start_text"]
+custom = store["start_text"]
 
-    text = f"{custom}\n\n{base}" if custom else base
+if custom:
+    text = custom
+else:
+    text = "Welcome!"
 
     kb = InlineKeyboardMarkup()
     kb.add(InlineKeyboardButton("💳 BUY PREMIUM", callback_data="buy"))
