@@ -45,6 +45,7 @@ def payment_text(store, price):
 1️⃣ 𝐒𝐜𝐚𝐧 𝐐𝐑 𝐂𝐨𝐝𝐞
 2️⃣ 𝐏𝐚𝐲 𝐮𝐬𝐢𝐧𝐠 𝐔𝐏𝐈
 3️⃣ 𝐂𝐥𝐢𝐜𝐤 𝐛𝐮𝐭𝐭𝐨𝐧 𝐛𝐞𝐥𝐨𝐰
+
 📸 Send screenshot after payment
 """
 
@@ -57,7 +58,7 @@ def start(message):
     store = get_store()
     add_user(message.chat.id)
 
-    base = "⚡ 𝐏𝐀𝐘𝐌𝐄𝐍𝐓 𝐆𝐀𝐓𝐄𝐖𝐀𝐘"
+    
     custom = store["start_text"]
 
     text = f"{custom}\n\n{base}" if custom else base
