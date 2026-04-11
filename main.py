@@ -6,7 +6,7 @@ from io import BytesIO
 from config import TOKEN, ADMIN_ID
 from db import add_user, set_setting, get_setting, get_all_users
 
-bot = telebot.TeleBot(TOKEN, parse_mode="Markdown")
+bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
 
 admin_wait = {}
 offer_price = {}
@@ -206,7 +206,7 @@ def paid(c):
 
     bot.send_message(
         c.message.chat.id,
-        "📸 Please send your *payment screenshot* here."
+        "📸 Please send your <b>payment screenshot</b> here."
     )
 
 
@@ -236,24 +236,24 @@ def cancel(c):
 
     # 🔥 PRO HIGH-CONVERTING TEXT
     text = f"""
-❌ *ORDER CANCELLED*
+    ❌ <b>ORDER CANCELLED</b>
 
-😔 Miss ho gaya...
+    😔 Miss ho gaya...
 
-🔥 *EXCLUSIVE DEAL UNLOCKED*
+    🔥 <b>EXCLUSIVE DEAL UNLOCKED</b>
 
-━━━━━━━━━━━━━━━
-💰 ~₹{old_price}~ ❌
-🎉 *Now Only:* ₹{new_price} ✅
-━━━━━━━━━━━━━━━
+     ━━━━━━━━━━━━━━━
+    💰 <s>₹{old_price}</s> ❌
+    🎉 <b>Now Only:</b> ₹{new_price} ✅
+     ━━━━━━━━━━━━━━━
 
-⏳ *Only few users can grab this deal*
-⚡ *Instant Access*
-🔐 *Private Premium Content*
+    ⏳ <b>Only few users can grab this deal</b>
+    ⚡ <b>Instant Access</b>
+    🔐 <b>Private Premium Content</b>
 
-🚨 *Hurry! Offer may expire anytime*
+    🚨 <b>Hurry! Offer may expire anytime</b>
 
-👇 *Tap below to grab now*
+    👇 <b>Tap below to grab now</b>
 """
 
     # 🔥 PRO BUTTON
