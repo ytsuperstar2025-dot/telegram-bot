@@ -36,6 +36,8 @@ def get_store():
 def payment_text(store, price):
     return f"""
 
+⚡ PAYMENT GATEWAY
+
 📛 𝐀𝐜𝐜𝐞𝐬𝐬: {store['name'] or "Not Set"}
 💵 𝐀𝐦𝐨𝐮𝐧𝐭: ₹{price}
 🏦 𝐔𝐏𝐈 𝐈𝐃: `{store['upi'] or "Not Set"}`
