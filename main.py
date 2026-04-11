@@ -56,13 +56,13 @@ def payment_text(store, price):
 @bot.message_handler(commands=["start"])
 def start(message):
     store = get_store()
-add_user(message.chat.id)
+    add_user(message.chat.id)
 
-custom = store["start_text"]
+    custom = store["start_text"]
 
-if custom:
+    if custom:
     text = custom
-else:
+    else:
     text = "Welcome!"
 
     kb = InlineKeyboardMarkup()
