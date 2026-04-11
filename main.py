@@ -35,7 +35,6 @@ def get_store():
 # =========================
 def payment_text(store, price):
     return f"""
-⚡ 𝐏𝐀𝐘𝐌𝐄𝐍𝐓 𝐆𝐀𝐓𝐄𝐖𝐀𝐘
 
 📛 𝐀𝐜𝐜𝐞𝐬𝐬: {store['name'] or "Not Set"}
 💵 𝐀𝐦𝐨𝐮𝐧𝐭: ₹{price}
