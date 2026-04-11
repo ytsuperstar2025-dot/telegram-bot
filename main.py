@@ -61,9 +61,9 @@ def start(message):
     custom = store["start_text"]
 
     if custom:
-    text = custom
+        text = custom
     else:
-    text = "Welcome!"
+        text = "Welcome!"
 
     kb = InlineKeyboardMarkup()
     kb.add(InlineKeyboardButton("💳 BUY PREMIUM", callback_data="buy"))
