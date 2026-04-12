@@ -277,7 +277,7 @@ def approve(c):
     offer_price.pop(user_id, None)
 
     bot.send_message(c.message.chat.id, "✅ APPROVED & LINK SENT")
-    bot.send_message(user_id, store["premium_link"])
+    
     bot.send_message(
     user_id,
     f"""🎉 *APPROVED!*
