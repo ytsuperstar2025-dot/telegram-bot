@@ -93,7 +93,7 @@ def admin_panel(message):
     kb.add(InlineKeyboardButton("💰 SET PRICE", callback_data="set_price"))
     kb.add(InlineKeyboardButton("🏦 SET UPI", callback_data="set_upi"))
     kb.add(InlineKeyboardButton("🎬 SET DEMO", callback_data="set_demo"))
-    kb.add(InlineKeyboardButton("🔗 SET PREMIUM LINK", callback_data="set_premium"))
+    kb.add(InlineKeyboardButton("🔗 SET PREMIUM LINK", callback_data="set_premium_link"))
     kb.add(InlineKeyboardButton("🖼 SET PHOTO", callback_data="set_photo"))
     kb.add(InlineKeyboardButton("✏ SET START TEXT", callback_data="set_start_text"))
     kb.add(InlineKeyboardButton("👥 USERS", callback_data="users"))
